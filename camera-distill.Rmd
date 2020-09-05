@@ -1,0 +1,168 @@
+---
+title: "Analysis of camera trapping data"
+description: |
+  Example analysis with Ivory Coast Maxwell's duiker.
+author:
+  - name: Eric Rexstad 
+    url: http://distancesampling.org
+    affiliation: CREEM, Univ of St Andrews
+    affiliation_url: https://creem.st-andrews.ac.uk
+date: "`r Sys.Date()`"
+output: 
+  distill::distill_article:
+    toc: true
+    toc_depth: 2
+bibliography: howeetal18.bib
+csl: apa.csl
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(eval=TRUE, echo=TRUE, message=FALSE, warnings=FALSE)
+```
+
+# Analysis of camera trapping data using distance sampling
+
+A distance sampling approach to the analysis of camera trapping data offers the potential advantage that individual animal identification is not required.  However, accurate detection animal to camera distances are required.  This requires calibration prior to the survey with images of objects of known size taken at known distances from the camera. See details in @howeetal for description of the field work and data analysis.  Here we present analysis of data from @howeetal using the R package `Distance` @miller.
+
+## Estimating temporal availability for detection
+
+We only have the luxury of including only data from times of peak activity when we obtain abundant data. For some species, or surveys with lower effort, observations from e.g. a 12- or 24-hour daily interval would be included (length of time camera $k$ was operating: $T_k$ = 12 or 24 hours per day). In these situations, the proportion of time included in $T_k$ when animals were available for detection by camera traps (when they were active at or near ground level) would also need to be estimated and included in the analysis (e.g. as another multiplier, potentially with an associated standard errors). 
+
+## Data input
+
+A data set for recording of detections during *peak activity* are included in the `Distance` package.  Examine the `DuikerCameraTraps` described in the data repository @dryad.
+
+
+```{r, readin, message=FALSE}
+library(Distance)
+data("DuikerCameraTraps")
+```
+
+## Exploratory Data Analysis
+
+How many transects, how many detections, detection distances
+
+```{r smaltable, echo=FALSE}
+sum(!is.na(DuikerCameraTraps$distance))
+table(DuikerCameraTraps$Sample.Label)
+```
+
+Note, three sampling stations (B1, C5, E4) had no detections.  The one record for each of those stations has distance recorded as `NA`, but the record is important because it contains effort information.
+
+
+## Distance recording
+
+
+```{r}
+breakpoints <- c(seq(0,8,1), 10, 12, 15, 21)
+hist(DuikerCameraTraps$distance, breaks=breakpoints, main="Peak activity data set",
+     xlab="Radial distance (m)")
+```
+
+## Truncation decisions
+
+As described by @howeetal:
+
+> a paucity of observations between 1 and 2 m but not between 2 and 3 m, so we left-truncated at 2 m. Fitted detection functions and probability density functions were heavy-tailed when distances >15 m were included, so we right truncated at 15 m.
+
+# Detection function fits
+
+A curious aside.  The conversion factor used in this analysis is not important for fitting the detection functions and model selection in this code chunk.  However, if you fail to include the proper conversion factor here, you could also add the conversion factor as an argument when the bootstrap is performed (near the end of this vignette).  The conversion factor must be include either in the call to `ds()` or the call to `bootdht()`.  In this vignette, it is included as an argument to `bootdht()`
+
+```{r fit}
+conversion <- convert_units("meter", NULL, "square kilometer")
+trunc.list <- list(left=2, right=15)
+peak.hn <- ds(DuikerCameraTraps, transect = "point", key="hn", adjustment=NULL,
+              cutpoints = c(seq(2,8,1), 10, 12, 15), truncation = trunc.list)
+peak.unicos <- ds(DuikerCameraTraps, transect = "point", key="unif", adjustment = "cos",
+                   cutpoints = c(seq(2,8,1), 10, 12, 15), truncation = trunc.list)
+peak.hr <- ds(DuikerCameraTraps, transect = "point", key="hr", adjustment = NULL, 
+              cutpoints = c(seq(2,8,1), 10, 12, 15), truncation = trunc.list)
+```
+
+# Model selection
+
+```{r, sumtab}
+knitr::kable(summarize_ds_models(peak.hn, peak.unicos, peak.hr), digits = 3, 
+             caption="Model selection for three key functions fitted to duiker peak activity data")
+```
+
+note lack of fit for all models due to over-dispersion.  The subject of over-dispersion is described in @howe_model_2019.
+
+As a check of the detection function vis-a-vis @howeetal, the paper reports the effective detection radius ($\rho$) to be 9.4m for the peak activity data set.
+
+The effective detection radius can be derived from $\hat{P_a}$ as reported by the function `ds` as
+
+$$\hat{\rho} = \sqrt{\hat{P_a} \cdot w^2}$$
+
+```{r}
+p_a <- peak.hr$ddf$fitted[1]
+w <- 15
+rho <- sqrt(p_a * w^2)
+```
+
+$\hat{P_a}$ is estimated to be `r round(p_a,3)`, resulting in an estimate of $\hat{\rho}$ of `r round(rho,3)`.
+
+
+# Selected detection function
+
+```{r}
+par(mfrow=c(1,2))
+plot(peak.hr, main="Peak activity", xlab="Distance (m)",
+     showpoints=FALSE, lwd=3, xlim=c(0, 15))
+plot(peak.hr, main="Peak activity", xlab="Distance (m)", pdf=TRUE,
+     showpoints=FALSE, lwd=3, xlim=c(0, 15))
+```
+
+```{r, echo=FALSE}
+par(mfrow=c(1,1))
+```
+
+## Density estimates
+
+The camera traps do not view the entire area around them, as would be the case with simple point transect sampling.  The portion of the area sampled needs to be incorporated in the estimation of abundance.  The data file contains a column `multiplier` that represents the proportion of the circle sampled.  @howeetal notes the camera angle of view (AOV) of 42$^{\circ}$.  The proportion of the circle viewed is this value over 360$^{\circ}$.
+
+An argument to `dht2` is `sample_fraction`, an obvious place to include this quantity.
+
+```{r, sampfrac}
+viewangle <- 42 # degrees
+samfrac <- viewangle / 360
+conversion <- convert_units("meter", NULL, "square kilometer")
+peak.hr.dens <- dht2(peak.hr, flatfile=DuikerCameraTraps, strat_formula = ~1,
+                     sample_fraction = samfrac, er_est = "P2", convert_units = conversion)
+print(peak.hr.dens, report="density")
+```
+
+# Bootstrap for variance estimation
+
+To produce a more reliable estimate of the precision of the point estimate, produce bootstrap estimates using `bootdht`.  Two issues to note when using `bootdht` with these camera trap data:
+
+- because of the viewing angle of the camera, we must specify the `sample_fraction` argument just as was done in the call to `dht2`
+- in @howeetal, estimates of density rather than estimates of abundance are presented.  To produce estimates from `bootdht` consistent with @howeetal, we write our own simple summary function to extract density estimates from each bootstrap replicate.  This is instead of relying upon the default function `bootdht_Nhat_summarize` provided in the `Distance` package.
+
+```{r, bootstrap, results='hide'}
+viewangle <- 42 # degrees
+samfrac <- viewangle / 360
+mysummary <- function(ests, fit){
+  return(data.frame(Dhat = ests$individuals$D$Estimate))
+}
+duiker.boot.hr <- bootdht(model=peak.hr, flatfile=DuikerCameraTraps, resample_transects = TRUE,
+                       nboot=400, summary_fun=mysummary, sample_fraction = samfrac,
+                       convert.units = conversion)
+```
+
+Confidence limits computed via the percentile method of the bootstrap.
+
+```{r bootresult}
+print(summary(duiker.boot.hr))
+```
+
+```{r, fig.width=8, fig.cap="Distribution of density estimates from bootstrap replicates."}
+hist(duiker.boot.hr$Dhat, breaks = 20, 
+     xlab="Estimated density", main="D-hat estimates bootstraps")
+abline(v=quantile(duiker.boot.hr$Dhat, probs = c(0.025,0.975), na.rm=TRUE), lwd=2, lty=3)
+```
+
+Note the confidence limits computed from the bootstrap are somewhat wider than the confidence limits computed via `dht2`.
+
+# References
