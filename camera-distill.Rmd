@@ -3,7 +3,7 @@ title: "Analysis of camera trapping data"
 description: |
   Example analysis with Ivory Coast Maxwell's duiker.
 author:
-  - name: Eric Rexstad 
+  - name: Eric Howe and Eric Rexstad 
     url: http://distancesampling.org
     affiliation: CREEM, Univ of St Andrews
     affiliation_url: https://creem.st-andrews.ac.uk
@@ -22,11 +22,12 @@ knitr::opts_chunk$set(eval=TRUE, echo=TRUE, message=FALSE, warnings=FALSE)
 
 # Analysis of camera trapping data using distance sampling
 
-A distance sampling approach to the analysis of camera trapping data offers the potential advantage that individual animal identification is not required.  However, accurate detection animal to camera distances are required.  This requires calibration prior to the survey with images of objects of known size taken at known distances from the camera. See details in @howeetal for description of the field work and data analysis.  Here we present analysis of data from @howeetal using the R package `Distance` @miller.
+A distance sampling approach to the analysis of camera trapping data offers the potential advantage that individual animal identification is not required.  However, accurate animal-to-camera detection distances are required.  This requires calibration prior to the survey with images of objects of known size taken at known distances from the camera. See details in @howeetal for description of the field work and data analysis.  Here we present analysis of data from @howeetal using the R package `Distance` @miller.
 
 ## Estimating temporal availability for detection
 
-We only have the luxury of including only data from times of peak activity when we obtain abundant data. For some species, or surveys with lower effort, observations from e.g. a 12- or 24-hour daily interval would be included (length of time camera $k$ was operating: $T_k$ = 12 or 24 hours per day). In these situations, the proportion of time included in $T_k$ when animals were available for detection by camera traps (when they were active at or near ground level) would also need to be estimated and included in the analysis (e.g. as another multiplier, potentially with an associated standard errors). 
+Heat- and motion-sensitive camera traps detect only moving animals within the range of the sensor and the field of view of the camera. Animals are therefore unavailable for detection by camera traps when they are stationary, and when they are above (e.g., semi-arboreal species) or below (e.g., semi-fossorial species) the range of the sensor or the camera, regardless of their distance from the camera in two dimensions. This temporally limited availability for detection must be accounted for to avoid negative bias in estimated densities.
+When data are abundant, researchers may choose to include only data from times when 100% of the population can be assumed to be active within the vertical range of camera traps @howeetal. However, for rarely-detected species or surveys with lower effort, it might be necessary to include most or all observations of distance. In these situations, survey duration ($T_k$) might be 12- or 24-hours per day, and it becomes necessary to estimate the proportion of time included in $T_k$ when animals were available for detection. Methods for estimating this proportion directly from CT data have been described @rowcliffe_2014, and it can be included in analyses to estimate density @bessone_2020, for example as another multiplier, potentially with an associated standard errors. 
 
 ## Data input
 
@@ -67,7 +68,7 @@ As described by @howeetal:
 
 # Detection function fits
 
-A curious aside.  The conversion factor used in this analysis is not important for fitting the detection functions and model selection in this code chunk.  However, if you fail to include the proper conversion factor here, you could also add the conversion factor as an argument when the bootstrap is performed (near the end of this vignette).  The conversion factor must be include either in the call to `ds()` or the call to `bootdht()`.  In this vignette, it is included as an argument to `bootdht()`
+The conversion factor must be include either in the call to `ds()` or the call to `bootdht()`.  In this vignette, it is included as an argument to `bootdht()`
 
 ```{r fit}
 conversion <- convert_units("meter", NULL, "square kilometer")
@@ -87,7 +88,7 @@ knitr::kable(summarize_ds_models(peak.hn, peak.unicos, peak.hr), digits = 3,
              caption="Model selection for three key functions fitted to duiker peak activity data")
 ```
 
-note lack of fit for all models due to over-dispersion.  The subject of over-dispersion is described in @howe_model_2019.
+Note lack of fit for all models due to over-dispersion.  The subject of over-dispersion is described in @howe_model_2019. This overdispersion causes AIC to select overly-complex models, so analysts should specify the number/order of adjustment terms manually when fitting distance sampling models to data from camera traps, rather than allowing automated selection using AIC. 
 
 As a check of the detection function vis-a-vis @howeetal, the paper reports the effective detection radius ($\rho$) to be 9.4m for the peak activity data set.
 
@@ -138,7 +139,7 @@ print(peak.hr.dens, report="density")
 To produce a more reliable estimate of the precision of the point estimate, produce bootstrap estimates using `bootdht`.  Two issues to note when using `bootdht` with these camera trap data:
 
 - because of the viewing angle of the camera, we must specify the `sample_fraction` argument just as was done in the call to `dht2`
-- in @howeetal, estimates of density rather than estimates of abundance are presented.  To produce estimates from `bootdht` consistent with @howeetal, we write our own simple summary function to extract density estimates from each bootstrap replicate.  This is instead of relying upon the default function `bootdht_Nhat_summarize` provided in the `Distance` package.
+- in @howeetal, estimates of density rather than estimates of abundance are presented.  To produce estimates from `bootdht` consistent with @howeetal, we write our own simple summary function to extract density estimates from each bootstrap replicate.  This is instead of relying upon the default function `bootdht_Nhat_summarize` provided in the `Distance` package, which produces estimates of abundance rather than density.
 
 ```{r, bootstrap, results='hide'}
 viewangle <- 42 # degrees
@@ -165,4 +166,3 @@ abline(v=quantile(duiker.boot.hr$Dhat, probs = c(0.025,0.975), na.rm=TRUE), lwd=
 
 Note the confidence limits computed from the bootstrap are somewhat wider than the confidence limits computed via `dht2`.
 
-# References
