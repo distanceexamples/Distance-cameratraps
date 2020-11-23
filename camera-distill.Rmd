@@ -22,17 +22,15 @@ knitr::opts_chunk$set(eval=TRUE, echo=TRUE, message=FALSE, warnings=FALSE)
 
 # Analysis of camera trapping data using distance sampling
 
-A distance sampling approach to the analysis of camera trapping data offers the potential advantage that individual animal identification is not required.  However, accurate animal-to-camera detection distances are required.  This requires calibration prior to the survey with images of objects of known size taken at known distances from the camera. See details in @howeetal for description of the field work and data analysis.  Here we present analysis of data from @howeetal using the R package `Distance` @miller.
+A distance sampling approach to the analysis of camera trapping data offers the potential advantage that individual animal identification is not required. However, accurate animal-to-camera detection distances are required. This requires calibration prior to the survey with images of objects of known size taken at known distances from the camera. See details in @howeetal for description of the field work and data analysis. Here we present analysis of data from @howeetal using the R package `Distance` @miller.
 
 ## Estimating temporal availability for detection
 
-Heat- and motion-sensitive camera traps detect only moving animals within the range of the sensor and the field of view of the camera. Animals are therefore unavailable for detection by camera traps when they are stationary, and when they are above (e.g., semi-arboreal species) or below (e.g., semi-fossorial species) the range of the sensor or the camera, regardless of their distance from the camera in two dimensions. This temporally limited availability for detection must be accounted for to avoid negative bias in estimated densities.
-When data are abundant, researchers may choose to include only data from times when 100% of the population can be assumed to be active within the vertical range of camera traps @howeetal. However, for rarely-detected species or surveys with lower effort, it might be necessary to include most or all observations of distance. In these situations, survey duration ($T_k$) might be 12- or 24-hours per day, and it becomes necessary to estimate the proportion of time included in $T_k$ when animals were available for detection. Methods for estimating this proportion directly from CT data have been described @rowcliffe_2014, and it can be included in analyses to estimate density @bessone_2020, for example as another multiplier, potentially with an associated standard errors. 
+Heat- and motion-sensitive camera traps detect only moving animals within the range of the sensor and the field of view of the camera. Animals are therefore unavailable for detection by camera traps when they are stationary, and when they are above (e.g., semi-arboreal species) or below (e.g., semi-fossorial species) the range of the sensor or the camera, regardless of their distance from the camera in two dimensions. This temporally limited availability for detection must be accounted for to avoid negative bias in estimated densities. When data are abundant, researchers may choose to include only data from times when 100% of the population can be assumed to be active within the vertical range of camera traps @howeetal. However, for rarely-detected species or surveys with lower effort, it might be necessary to include most or all observations of distance. In these situations, survey duration ($T_k$) might be 12- or 24-hours per day, and it becomes necessary to estimate the proportion of time included in $T_k$ when animals were available for detection. Methods for estimating this proportion directly from CT data have been described @rowcliffe_2014, and it can be included in analyses to estimate density @bessone_2020, for example as another multiplier, potentially with an associated standard errors.
 
 ## Data input
 
-A data set for recording of detections during *peak activity* are included in the `Distance` package.  Examine the `DuikerCameraTraps` described in the data repository @dryad.
-
+A data set for recording of detections during *peak activity* are included in the `Distance` package. Examine the `DuikerCameraTraps` described in the data repository @dryad.
 
 ```{r, readin, message=FALSE}
 library(Distance)
@@ -48,11 +46,9 @@ sum(!is.na(DuikerCameraTraps$distance))
 table(DuikerCameraTraps$Sample.Label)
 ```
 
-Note, three sampling stations (B1, C5, E4) had no detections.  The one record for each of those stations has distance recorded as `NA`, but the record is important because it contains effort information.
-
+Note, three sampling stations (B1, C5, E4) had no detections. The one record for each of those stations has distance recorded as `NA`, but the record is important because it contains effort information.
 
 ## Distance recording
-
 
 ```{r}
 breakpoints <- c(seq(0,8,1), 10, 12, 15, 21)
@@ -64,31 +60,118 @@ hist(DuikerCameraTraps$distance, breaks=breakpoints, main="Peak activity data se
 
 As described by @howeetal:
 
-> a paucity of observations between 1 and 2 m but not between 2 and 3 m, so we left-truncated at 2 m. Fitted detection functions and probability density functions were heavy-tailed when distances >15 m were included, so we right truncated at 15 m.
+> a paucity of observations between 1 and 2 m but not between 2 and 3 m, so we left-truncated at 2 m. Fitted detection functions and probability density functions were heavy-tailed when distances \>15 m were included, so we right truncated at 15 m.
 
 # Detection function fits
 
-The conversion factor must be include either in the call to `ds()` or the call to `bootdht()`.  In this vignette, it is included as an argument to `bootdht()`
+The conversion factor must be include either in the call to `ds()` or the call to `bootdht()`. In this vignette, it is included as an argument to `bootdht()`.
+
+Candidate models include the half normal key with 0 and 1 Hermite polynomial adjustment; uniform key with 1 and 2 cosine adjustments and the hazard rate key with 0, 1 and 2 cosine adjustments.
 
 ```{r fit}
 conversion <- convert_units("meter", NULL, "square kilometer")
 trunc.list <- list(left=2, right=15)
-peak.hn <- ds(DuikerCameraTraps, transect = "point", key="hn", adjustment=NULL,
-              cutpoints = c(seq(2,8,1), 10, 12, 15), truncation = trunc.list)
-peak.unicos <- ds(DuikerCameraTraps, transect = "point", key="unif", adjustment = "cos",
-                   cutpoints = c(seq(2,8,1), 10, 12, 15), truncation = trunc.list)
-peak.hr <- ds(DuikerCameraTraps, transect = "point", key="hr", adjustment = NULL, 
-              cutpoints = c(seq(2,8,1), 10, 12, 15), truncation = trunc.list)
+hn0 <- ds(DuikerCameraTraps, transect = "point", key="hn", adjustment = NULL,
+          cutpoints = c(seq(2,8,1), 10, 12, 15), truncation = trunc.list)
+hn1 <- ds(DuikerCameraTraps, transect = "point", key="hn", adjustment = "herm",
+          order=2,
+          cutpoints = c(seq(2,8,1), 10, 12, 15), truncation = trunc.list)
+
+uni1 <- ds(DuikerCameraTraps, transect = "point", key="unif", adjustment = "cos",
+           order=1,
+           cutpoints = c(seq(2,8,1), 10, 12, 15), truncation = trunc.list)
+uni2 <- ds(DuikerCameraTraps, transect = "point", key="unif", adjustment = "cos",
+           order=c(1,2),
+           cutpoints = c(seq(2,8,1), 10, 12, 15), truncation = trunc.list)
+
+hr0 <- ds(DuikerCameraTraps, transect = "point", key="hr", adjustment = NULL,
+          cutpoints = c(seq(2,8,1), 10, 12, 15), truncation = trunc.list)
+hr1 <- ds(DuikerCameraTraps, transect = "point", key="hr", adjustment = "cos",
+          order=2,
+          cutpoints = c(seq(2,8,1), 10, 12, 15), truncation = trunc.list)
+hr2 <- ds(DuikerCameraTraps, transect = "point", key="hr", adjustment = "cos",
+          order=c(2,3),
+          cutpoints = c(seq(2,8,1), 10, 12, 15), truncation = trunc.list)
+
 ```
 
-# Model selection
+# Model selection adjustments from overdispersion
 
-```{r, sumtab}
-knitr::kable(summarize_ds_models(peak.hn, peak.unicos, peak.hr), digits = 3, 
-             caption="Model selection for three key functions fitted to duiker peak activity data")
+Overdispersion causes AIC to select overly-complex models, so analysts should specify the number/order of adjustment terms manually when fitting distance sampling models to data from camera traps, rather than allowing automated selection using AIC. @howe_model_2019 describes two methods for performing model selection of distance sampling models in the face of overdispersion. Here we provide R functions to perform the first of these methods. The first method of @howe_model_2019 computes an overdisersion factor $(\hat{c})$ for each key function family from the most complex model in each family. The $(\hat{c})$ is derived from the $\chi^2$ goodness of fit test statistic divided by its degrees of freedom. This results in an adjusted AIC score for each model in the key function family:
+
+$$QAIC = -2 \left \{ \frac{log(\mathcal{L}(\hat{\theta}))}{\hat{c}} \right \} + 2K$$
+
+Code to perform this QAIC computation is found in the function `qaic.pass1`:
+
+```{r showpass1}
+chat <- function(modobj) {
+#  computes c-hat for a dsmodel object using Method 1 of Howe et al. (2018)
+  test <- gof_ds(modobj)
+  num <- test$chisquare$chi1$chisq
+  denom <- test$chisquare$chi1$df
+  chat <- num/denom
+  return(chat)
+}
+
+qaic <- function(modobj, chat) {
+#  computes QAIC for a dsmodel object given a c-hat
+  value <- 2* modobj$ddf$ds$value/chat + 2 * (length(modobj$ddf$ds$pars)+1)
+  return(value)
+}
+
+qaic.pass1 <- function(...) {
+#   Performs Pass 1 model selection based upon Method 1 of Howe et al. (2018)
+#   Arguments are dsmodel objects; assumed all based on same key function
+#    c-hat is computed for the most parameter-rich model in the group
+#    qaic is calculated for each model in group based upon this c-hat
+#   Result returned in the form of a data.frame with model name, npar, aic and qaic
+  models <- list(...)
+  num.models <- length(models)
+  npar <- unlist(lapply(models, function(x) length(x$ddf$ds$par)))  
+  modname <-  unlist(lapply(models, function(x) x$ddf$name.message))
+  aic <-  unlist(lapply(models, function(x) x$ddf$criterion))
+  chat.bigmod <- chat(models[[which.max(npar)]])
+  qaic <- vector(mode="numeric", length = num.models)
+  for (i in 1:num.models) {
+    qaic[i] <- qaic(models[[i]], chat.bigmod)
+  }
+  nicetab <- data.frame(modname, npar, aic, qaic)
+  return(nicetab)
+}
 ```
 
-Note lack of fit for all models due to over-dispersion.  The subject of over-dispersion is described in @howe_model_2019. This overdispersion causes AIC to select overly-complex models, so analysts should specify the number/order of adjustment terms manually when fitting distance sampling models to data from camera traps, rather than allowing automated selection using AIC. 
+```{r pass1a, echo=FALSE}
+knitr::kable(qaic.pass1(hn0, hn1), 
+             caption="QAIC values for half normal key models.")
+```
+
+```{r pass1b, echo=FALSE}
+knitr::kable(qaic.pass1(uni1, uni2),
+             caption="QAIC values for uniform key models.")
+```
+
+```{r pass1c, echo=FALSE}
+knitr::kable(qaic.pass1(hr0, hr1, hr2),
+             caption="QAIC values for hazard rate key models.")
+```
+
+From this first pass of model selection based on QAIC values, we find the preferable model with the hazard rate key function is one without adjustment terms. The model with the uniform key function preferred by QAIC has a single adjustment term; likewise for the half normal key function.
+
+The final pass of model selection ranks the models by their $\hat{c}$ values.
+
+```{r pass2}
+winners <- list(hn1, uni1, hr0)
+chats <- unlist(lapply(winners, function(x) chat(x)))
+modnames <- unlist(lapply(winners, function(x) x$ddf$name.message))
+results <- data.frame(modnames, chats)
+results.sort <- results[order(results$chats),]
+knitr::kable(results.sort, digits=2, row.names = FALSE,
+             caption="Compare with Table S5 of Howe et al. (2018)")
+```
+
+For this data set, the model chosen by this algorithm that adjusts for overdispersion is the same model (half normal key without adjustments) as would have been chosen by conventional model selection.
+
+# Sensibility check for detection parameter estimates
 
 As a check of the detection function vis-a-vis @howeetal, the paper reports the effective detection radius ($\rho$) to be 9.4m for the peak activity data set.
 
@@ -97,21 +180,20 @@ The effective detection radius can be derived from $\hat{P_a}$ as reported by th
 $$\hat{\rho} = \sqrt{\hat{P_a} \cdot w^2}$$
 
 ```{r}
-p_a <- peak.hr$ddf$fitted[1]
+p_a <- hr0$ddf$fitted[1]
 w <- 15
 rho <- sqrt(p_a * w^2)
 ```
 
 $\hat{P_a}$ is estimated to be `r round(p_a,3)`, resulting in an estimate of $\hat{\rho}$ of `r round(rho,3)`.
 
-
 # Selected detection function
 
 ```{r}
 par(mfrow=c(1,2))
-plot(peak.hr, main="Peak activity", xlab="Distance (m)",
+plot(hr0, main="Peak activity", xlab="Distance (m)",
      showpoints=FALSE, lwd=3, xlim=c(0, 15))
-plot(peak.hr, main="Peak activity", xlab="Distance (m)", pdf=TRUE,
+plot(hr0, main="Peak activity", xlab="Distance (m)", pdf=TRUE,
      showpoints=FALSE, lwd=3, xlim=c(0, 15))
 ```
 
@@ -121,7 +203,7 @@ par(mfrow=c(1,1))
 
 ## Density estimates
 
-The camera traps do not view the entire area around them, as would be the case with simple point transect sampling.  The portion of the area sampled needs to be incorporated in the estimation of abundance.  The data file contains a column `multiplier` that represents the proportion of the circle sampled.  @howeetal notes the camera angle of view (AOV) of 42$^{\circ}$.  The proportion of the circle viewed is this value over 360$^{\circ}$.
+The camera traps do not view the entire area around them, as would be the case with simple point transect sampling. The portion of the area sampled needs to be incorporated in the estimation of abundance. The data file contains a column `multiplier` that represents the proportion of the circle sampled. @howeetal notes the camera angle of view (AOV) of 42$^{\circ}$. The proportion of the circle viewed is this value over 360$^{\circ}$.
 
 An argument to `dht2` is `sample_fraction`, an obvious place to include this quantity.
 
@@ -129,40 +211,39 @@ An argument to `dht2` is `sample_fraction`, an obvious place to include this qua
 viewangle <- 42 # degrees
 samfrac <- viewangle / 360
 conversion <- convert_units("meter", NULL, "square kilometer")
-peak.hr.dens <- dht2(peak.hr, flatfile=DuikerCameraTraps, strat_formula = ~1,
+peak.hr.dens <- dht2(hr0, flatfile=DuikerCameraTraps, strat_formula = ~1,
                      sample_fraction = samfrac, er_est = "P2", convert_units = conversion)
 print(peak.hr.dens, report="density")
 ```
 
 # Bootstrap for variance estimation
 
-To produce a more reliable estimate of the precision of the point estimate, produce bootstrap estimates using `bootdht`.  Two issues to note when using `bootdht` with these camera trap data:
+To produce a more reliable estimate of the precision of the point estimate, produce bootstrap estimates using `bootdht`. Two issues to note when using `bootdht` with these camera trap data:
 
-- because of the viewing angle of the camera, we must specify the `sample_fraction` argument just as was done in the call to `dht2`
-- in @howeetal, estimates of density rather than estimates of abundance are presented.  To produce estimates from `bootdht` consistent with @howeetal, we write our own simple summary function to extract density estimates from each bootstrap replicate.  This is instead of relying upon the default function `bootdht_Nhat_summarize` provided in the `Distance` package, which produces estimates of abundance rather than density.
+-   because of the viewing angle of the camera, we must specify the `sample_fraction` argument just as was done in the call to `dht2`
+-   in @howeetal, estimates of density rather than estimates of abundance are presented. To produce estimates from `bootdht` consistent with @howeetal, we write our own simple summary function to extract density estimates from each bootstrap replicate. This is instead of relying upon the default function `bootdht_Nhat_summarize` provided in the `Distance` package, which produces estimates of abundance rather than density.
 
-```{r, bootstrap, results='hide'}
+```{r, bootstrap, results='hide', eval=TRUE}
 viewangle <- 42 # degrees
 samfrac <- viewangle / 360
 mysummary <- function(ests, fit){
   return(data.frame(Dhat = ests$individuals$D$Estimate))
 }
-duiker.boot.hr <- bootdht(model=peak.hr, flatfile=DuikerCameraTraps, resample_transects = TRUE,
+duiker.boot.hr <- bootdht(model=hr0, flatfile=DuikerCameraTraps, resample_transects = TRUE,
                        nboot=400, summary_fun=mysummary, sample_fraction = samfrac,
                        convert.units = conversion)
 ```
 
 Confidence limits computed via the percentile method of the bootstrap.
 
-```{r bootresult}
+```{r bootresult, eval=TRUE}
 print(summary(duiker.boot.hr))
 ```
 
-```{r, fig.width=8, fig.cap="Distribution of density estimates from bootstrap replicates."}
+```{r, fig.width=8, fig.cap="Distribution of density estimates from bootstrap replicates.", eval=TRUE}
 hist(duiker.boot.hr$Dhat, breaks = 20, 
      xlab="Estimated density", main="D-hat estimates bootstraps")
 abline(v=quantile(duiker.boot.hr$Dhat, probs = c(0.025,0.975), na.rm=TRUE), lwd=2, lty=3)
 ```
 
 Note the confidence limits computed from the bootstrap are somewhat wider than the confidence limits computed via `dht2`.
-
