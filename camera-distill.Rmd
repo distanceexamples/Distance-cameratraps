@@ -118,7 +118,7 @@ chat <- function(modobj) {
 
 qaic <- function(modobj, chat) {
 #  computes QAIC for a dsmodel object given a c-hat
-  value <- 2* modobj$ddf$ds$value/chat + 2 * (length(modobj$ddf$ds$pars)+1)
+  value <- 2* modobj$ddf$ds$value/chat + 2 * (length(modobj$ddf$ds$par)+1)
   return(value)
 }
 
