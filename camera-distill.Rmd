@@ -107,9 +107,11 @@ Detection distances for the full daytime data set is also available on @dryad an
 DuikerCameraTraps <- read.csv(file="https://datadryad.org/stash/downloads/file_stream/73221", 
                               header=TRUE, sep="\t")
 DuikerCameraTraps$Area <- DuikerCameraTraps$Area / (1000*1000)
+DuikerCameraTraps$object <- NA
+DuikerCameraTraps$object[!is.na(DuikerCameraTraps$distance)] <- 1:sum(!is.na(DuikerCameraTraps$distance))
 ```
 
-Data file recorded study area size in square meters; second line above converts this to area in square kilometers.
+Data file recorded study area size in square meters; second line above converts this to area in square kilometers; the remaining lines create an `object` field, which uniquely identify each observation.
 
 ## Exploratory Data Analysis
 
