@@ -58,7 +58,9 @@ We will employ two functions from the `activity` package.  First, convert the ti
 
 ```{r radian, eval=solution}
 library(activity)
-trigger.events$rtime <- gettime(trigger.events$datetime, "%Y/%m/%d %H:%M")
+trigger.events$rtime <- gettime(trigger.events$datetime, 
+                                tryFormats = "%Y/%m/%d %H:%M",
+                                scale = "radian")
 ```
 
 With the radian conversion of the camera triggering times, the distribution of the triggering events times is smoothed, using a kernel smoother by the function `fitact`.  The function estimates the proportion of time (in a 24hr day) animals were active.  In addition, the triggering time data can be resampled to provide a measure of uncertainty in the point estimate of activity proportion.
