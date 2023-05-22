@@ -316,7 +316,7 @@ Just as with `dht2` there are arguments for the `model`, `flatfile`,  `sample_fr
 
 ```{r, bootstrap, results='hide', eval=solution}
 daytime.boot.uni <- bootdht(model=uni3, flatfile=DuikerCameraTraps,
-                          resample_transects = TRUE, nboot=600, cores = 11,
+                          resample_transects = TRUE, nboot=500, cores = 11,
                           summary_fun=mysummary, sample_fraction = samfrac,
                           convert_units = conversion, multipliers=mult)
 ```
